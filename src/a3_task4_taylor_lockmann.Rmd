@@ -1,0 +1,99 @@
+---
+title: "a3_task4_taylor_lockmann"
+author: "Taylor Lockmann"
+date: "11/4/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(lubridate)
+library(here)
+library(kableExtra)
+```
+
+### 3. read in the urchins data and write code to compare the mean size of purple urchins in CONTROL (no giant kelp removal) or ANNUAL (annual kelp removal) sections of Naples Reef in January 2010. You should write nicely annotated code, with clear sections and text as useful, to: 
+
+#### a. Wrangle the urchins data to only include Naples Reef observations for purple urchins observed in January 2010 (you may want to use some code from Task 3 as a start). Hint: convert date to "Date" class with lubridate, then use the `month()` and `year()` functions to add new columns for month and year that you can use to filter by
+
+```{r}
+# Read in the urchins csv using the "here" package:
+urchins <- read.csv(here("data", "urchins.csv")) 
+
+Naples_Jan2010_urchins <- urchins %>% #Start with all urchins data
+  filter(COMMON_NAME == "Purple Urchin") %>% #Filter to only purple urchins
+  mutate(date_new = mdy(DATE)) %>% # Convert DATE column to "Date" class
+  mutate(year = year(date_new)) %>%  #Create a new column of only the year
+  mutate(month = month(date_new)) %>% #Create a new column of only the month
+  filter(year == 2010 & month == 1 & SITE == "NAPL") #Filter our dataset to only include observations from January (month == 1) of 2010 (year == 2010) at Naples Reef (SITE == NAPL)
+```
+
+#### b. Look at and consider histograms and QQ-plots for the size distribution for each of the treatments (Control and Annual) to assess normality. These are exploratory and do not need to be finalized, but *below the graphs* in your .Rmd write 1 - 2 sentences describing your main takeaways about the distribution of urchin sizes for each group.
+
+```{r}
+# Histograms
+ggplot(data = Naples_Jan2010_urchins, aes(x = SIZE))+
+  geom_histogram(bins = 30)+
+  facet_wrap(~TREATMENT)+
+  labs(
+    x = "Urchin Size (cm)",
+    y = "Count"
+  )
+```
+
+```{r}
+# QQ Plots
+ggplot(data = Naples_Jan2010_urchins, aes(sample = SIZE))+
+  geom_qq()+
+  facet_wrap(~TREATMENT)
+```
+
+
+Based on these exploratory plots, both groups appear to be normally distributed, as the histograms appear (roughly) bell-shaped. Both qqplots also have what seems to be a linear relationship, so it is likely these groups are normally distributed.
+
+#### c. Create a basic table of descriptive statistics for both groups (including at least the mean, standard deviation, and sample size)
+
+```{r}
+naples_urchin_stats <- Naples_Jan2010_urchins %>% # Start with the data set we created in the last step
+  group_by(TREATMENT) %>% # Group observations according to treatment
+  summarize(Mean = mean(SIZE),
+            SD_Size = sd(SIZE),
+            Median = median(SIZE),
+            N = n()) # Create a summary table that inclused mean, standard deivation, median, and number of observations
+
+kbl(naples_urchin_stats, caption = "Naples Reef Urchins Statistics") %>% 
+  kable_styling(bootstrap_options = "striped",
+                full_width = F) # Format into a nice table all tidy-like
+```
+
+#### d. Perform a two-sample t-test to compare means between the two groups
+
+```{r}
+# Create a vector for each of our groups
+annual_sample <- Naples_Jan2010_urchins %>% 
+  filter(TREATMENT == "ANNUAL") %>% 
+  pull(SIZE)
+
+control_sample <- Naples_Jan2010_urchins %>% 
+  filter(TREATMENT == "CONTROL") %>% 
+  pull(SIZE)
+
+#Use these vectors to run a t-test
+t.test(x = annual_sample, control_sample)
+```
+
+#### e. In text below your t-test code and output, write a comprehensive statement (2 - 3 sentences) comparing the means that provides meaningful discussion about the means difference beyond (but also including) the p-value, possibly including the actual means and standard deviations for each group, and the actual difference and/or % difference in means.
+
+If we look at the means themselves, we can see that the mean of our Annual sample (V1) is 3.916667, and the mean of our Control sample (V2) is 3.725807. Using the standard percentage difference equation:
+((|V1-V2|)/((V1 + V2)/2))*100
+We get a percent difference of 4.99472%. This is a rather small percentage, so it would make sense that our two samples were likely randomly drawn from populations with the same means.
+
+Additionally, if we look at our summary table we see that the standard deviations of our two samples are both less than 1, indicating a small standard deviation. This makes it likely that the means of each sample are within one standard deviation of each other, thus putting the means within close proximity of each other and supporting the idea that the true means of the populations are the same and within that same range. 
+
+#### f. In a final sentence, write the meaning of the p-value that you found in the t-test above. 
+
+For this t-test, we are testing the null hypothesis that these two samples were drawn from populations with the same exact means. The p-value that results from this test indicates there is almost a 26% chance (p-value = 0.2536) that these samples were randomly drawn from populations that have the same means *and* that the samples have means that are at least this different. So this tells us that if the actual means of the control and annual groups are indeed actually the *same*, there is approximately a 26% chance that we would have drawn random samples with means that are at least as different as the values we obtained above. 
+
+
+### End task 4
